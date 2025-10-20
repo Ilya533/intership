@@ -1,15 +1,42 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="01da27aa-585a-4202-966a-fbcd204dda2f" name="Changes" comment="" />
+    <list default="true" id="01da27aa-585a-4202-966a-fbcd204dda2f" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/../task 1/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../task 1/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../task 1/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../task 1/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../task 2/out/production/task2/Category.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../task 2/out/production/task2/Customer.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../task 2/out/production/task2/Main.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../task 2/out/production/task2/Order.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../task 2/out/production/task2/OrderItem.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../task 2/out/production/task2/OrderStatus.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../task 2/out/production/task2/Task.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../task 2/out/production/task2/TaskTest.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/out/production/task 3/Main$Faction.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/out/production/task 3/Main$Factory.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/out/production/task 3/Main$Part.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/out/production/task 3/Main.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../task 4/out/production/task 4/minispring/ApplicationContext.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../task 4/out/production/task 4/minispring/Autowired.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../task 4/out/production/task 4/minispring/Component.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../task 4/out/production/task 4/minispring/InitializingBean.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../task 4/out/production/task 4/minispring/Scope.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../task 4/out/production/task 4/test/Main.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../task 4/out/production/task 4/test/PrototypeTokenGenerator.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../task 4/out/production/task 4/test/UserRepository.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../task 4/out/production/task 4/test/UserService.class" beforeDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
-  <component name="ProjectColorInfo"><![CDATA[{
-  "associatedIndex": 0
-}]]></component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/.." />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 0
+}</component>
   <component name="ProjectId" id="34AIAwQmVwhKefBkGN8eL04p4Gz" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
@@ -19,8 +46,10 @@
   "keyToString": {
     "Application.Main.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
+    "git-widget-placeholder": "tasks",
     "ignore.virus.scanning.warn.message": "true",
     "kotlin-language-version-configured": "true",
+    "last_opened_file_path": "F:/innnow/modul 1/task 3",
     "onboarding.tips.debug.path": "F:/стажировка/modul 1/task 3/src/Main.java"
   }
 }]]></component>
