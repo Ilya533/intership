@@ -1,0 +1,69 @@
+[33mcommit 2ee419d2e6528c6085051a0c4a0c5c8daab800fe[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mtasks[m[33m, [m[1;31morigin/tasks[m[33m, [m[1;32mbackup-before-restore[m[33m)[m
+Author: ilya <ilya.yanishevski@gmail.com>
+Date:   Tue Oct 21 13:13:06 2025 +0300
+
+    edits
+
+D	task 1/.gitignore
+D	task 1/.idea/.gitignore
+D	task 1/.idea/dbnavigator.xml
+D	task 1/.idea/misc.xml
+D	task 1/.idea/modules.xml
+D	task 1/.idea/uiDesigner.xml
+D	task 1/.idea/vcs.xml
+D	task 1/.idea/workspace.xml
+D	task 1/src/LinkList.java
+D	task 1/src/Main.java
+D	task 1/src/Node.java
+D	task 1/task1.iml
+D	task 2/.gitignore
+D	task 2/.idea/.gitignore
+D	task 2/.idea/dbnavigator.xml
+D	task 2/.idea/misc.xml
+D	task 2/.idea/modules.xml
+D	task 2/.idea/uiDesigner.xml
+D	task 2/.idea/workspace.xml
+D	task 2/lib/apiguardian-api-1.1.2.jar
+D	task 2/lib/junit-jupiter-5.8.1.jar
+D	task 2/lib/junit-jupiter-api-5.8.1.jar
+D	task 2/lib/junit-jupiter-engine-5.8.1.jar
+D	task 2/lib/junit-jupiter-params-5.8.1.jar
+D	task 2/lib/junit-platform-commons-1.8.1.jar
+D	task 2/lib/junit-platform-engine-1.8.1.jar
+D	task 2/lib/opentest4j-1.2.0.jar
+D	task 2/src/Category.java
+D	task 2/src/Customer.java
+D	task 2/src/Main.java
+D	task 2/src/Order.java
+D	task 2/src/OrderItem.java
+D	task 2/src/OrderStatus.java
+D	task 2/src/Task.java
+D	task 2/src/TaskTest.java
+D	task 2/task2.iml
+D	task 3/.gitignore
+D	task 3/.idea/.gitignore
+D	task 3/.idea/dbnavigator.xml
+D	task 3/.idea/misc.xml
+D	task 3/.idea/modules.xml
+D	task 3/.idea/task 3.iml
+D	task 3/.idea/vcs.xml
+D	task 3/.idea/workspace.xml
+D	task 3/src/Main.java
+D	task 3/task 3.iml
+D	task 4/.gitignore
+D	task 4/.idea/.gitignore
+D	task 4/.idea/dbnavigator.xml
+D	task 4/.idea/misc.xml
+D	task 4/.idea/modules.xml
+D	task 4/.idea/uiDesigner.xml
+D	task 4/.idea/workspace.xml
+D	task 4/src/minispring/ApplicationContext.java
+D	task 4/src/minispring/Autowired.java
+D	task 4/src/minispring/Component.java
+D	task 4/src/minispring/InitializingBean.java
+D	task 4/src/minispring/Scope.java
+D	task 4/src/test/Main.java
+D	task 4/src/test/PrototypeTokenGenerator.java
+D	task 4/src/test/UserRepository.java
+D	task 4/src/test/UserService.java
+D	task 4/task 4.iml
