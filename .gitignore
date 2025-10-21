@@ -1,0 +1,12 @@
+
+.idea/
+*.iws
+*.iml
+*.ipr
+
+*.tmp
+*.temp
+
+
+*.orig
+*.bak
