@@ -247,7 +247,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y docker-compose-plugin
-
+git
       - name: Deploy with docker-compose
         env:
           SPRING_PROFILES_ACTIVE: docker

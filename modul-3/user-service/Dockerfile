@@ -1,18 +1,13 @@
-FROM eclipse-temurin:17-jre as builder
-WORKDIR /application
+# Dockerfile
+FROM eclipse-temurin:17-jdk-alpine as builder
+WORKDIR /app
+COPY . .
+RUN ./mvnw clean package -DskipTests
 
-ARG JAR_FILE=target/*.jar
-COPY ${JAR_FILE} application.jar
-RUN java -Djarmode=layertools -jar application.jar extract
-
-FROM eclipse-temurin:17-jre
-WORKDIR /application
-COPY --from=builder /application/dependencies/ ./
-COPY --from=builder /application/spring-boot-loader/ ./
-COPY --from=builder /application/snapshot-dependencies/ ./
-COPY --from=builder /application/application/ ./
-
-ENV JAVA_OPTS="-Xms256m -Xmx512m"
+FROM eclipse-temurin:17-jre-alpine
+WORKDIR /app
+COPY --from=builder /app/target/*.jar app.jar
+RUN addgroup -S spring && adduser -S spring -G spring
+USER spring
 EXPOSE 8080
-
-ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS org.springframework.boot.loader.JarLauncher"]
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]
