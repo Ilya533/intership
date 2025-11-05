@@ -37,15 +37,28 @@ jobs:
 
       - name: Build application
         run: |
+          echo "=== Building with Maven ==="
           mvn -B clean compile
-          echo "=== Creating JAR ==="
+          
+          echo "=== Checking compilation results ==="
+          if [ -d "target/classes" ] && [ "$(ls -A target/classes)" ]; then
+            echo "✅ Classes compiled successfully"
+            ls -la target/classes/ | head -10
+          else
+            echo "❌ Compilation failed - no classes found"
+            exit 1
+          fi
+
+          echo "=== Creating JAR file ==="
           jar cf target/user-service.jar -C target/classes .
-          echo "=== Build completed ==="
-          ls -la target/
+          
+          echo "=== JAR created successfully ==="
+          ls -la target/*.jar
 
       - name: Run tests with coverage
         run: |
           mkdir -p src/test/resources
+          echo "=== Running tests ==="
           mvn -B test jacoco:report
         env:
           SPRING_PROFILES_ACTIVE: test
