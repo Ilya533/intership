@@ -27,10 +27,14 @@
         <maven-surefire-plugin.version>3.1.2</maven-surefire-plugin.version>
         <jacoco.version>0.8.10</jacoco.version>
 
-        <!-- Sonar Properties -->
         <sonar.host.url>https://sonarcloud.io</sonar.host.url>
         <sonar.organization>ilya533</sonar.organization>
-        <sonar.projectKey>ilya533_user-service</sonar.projectKey>
+        <sonar.projectKey>intership</sonar.projectKey>
+        <sonar.projectName>
+            intership
+
+        </sonar.projectName>
+
         <sonar.sourceEncoding>UTF-8</sonar.sourceEncoding>
         <sonar.java.source>17</sonar.java.source>
         <sonar.java.target>17</sonar.java.target>
