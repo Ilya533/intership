@@ -1,6 +1,7 @@
 name: CI Pipeline
 
 on:
+  workflow_dispatch:
   push:
     branches: [ main, user-service ]
   pull_request:
@@ -12,21 +13,18 @@ env:
   SERVICE_PORT: 8080
   REGISTRY_HOST: ghcr.io
 
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
 jobs:
   build:
     name: Build package
     runs-on: ubuntu-latest
-    outputs:
-      jar-path: ${{ steps.upload-art.outputs.artifact-path }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Debug directory structure
-        run: |
-          echo "Current directory: $(pwd)"
-          ls -la
-          find . -name "pom.xml" -type f
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -44,25 +42,14 @@ jobs:
             ${{ runner.os }}-maven-
 
       - name: Build jar (skip tests)
-        run: |
-          if [ -f "modul-3/user-service/pom.xml" ]; then
-            cd modul-3/user-service
-          fi
-          mvn -B -DskipTests clean package
-
-      - name: Find and upload jar artifact
-        id: upload-art
-        run: |
-          JAR_FILE=$(find . -name "*.jar" -type f | head -1)
-          echo "Found JAR: $JAR_FILE"
-          echo "artifact-path=$JAR_FILE" >> $GITHUB_OUTPUT
-        shell: bash
+        run: mvn -B -DskipTests clean package
+        working-directory: user-service
 
       - name: Upload jar artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-jar
-          path: ${{ steps.upload-art.outputs.artifact-path }}
+          path: user-service/target/*.jar
 
   unit-tests:
     name: Unit tests and coverage
@@ -84,11 +71,8 @@ jobs:
           name: app-jar
 
       - name: Run unit tests
-        run: |
-          if [ -f "modul-3/user-service/pom.xml" ]; then
-            cd modul-3/user-service
-          fi
-          mvn -B test jacoco:report
+        run: mvn -B test jacoco:report
+        working-directory: user-service
         env:
           SPRING_PROFILES_ACTIVE: test
 
@@ -96,9 +80,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: unit-test-reports
-          path: |
-            target/surefire-reports/
-            target/site/jacoco/
+          path: user-service/target/surefire-reports/
           retention-days: 1
 
   integration-tests:
@@ -113,21 +95,17 @@ jobs:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: password
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U postgres -d userdb"
           --health-interval 10s
           --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
+          --health-retries 10
       redis:
         image: redis:7-alpine
         options: >-
           --health-cmd "redis-cli ping"
           --health-interval 10s
           --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 6379:6379
+          --health-retries 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -138,30 +116,29 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Wait for services to be ready
+      - name: Wait for DB and Redis to be healthy
         run: |
-          sleep 10
+          echo "Waiting for postgres..."
+          for i in {1..30}; do
+            docker run --network host --rm postgres:15 pg_isready -h postgres -U postgres -d userdb && break
+            sleep 2
+          done
+          echo "Waiting for redis..."
+          for i in {1..30}; do
+            docker run --network host --rm redis:7-alpine redis-cli -h redis ping | grep PONG && break
+            sleep 2
+          done
 
       - name: Run integration tests
-        run: |
-          if [ -f "modul-3/user-service/pom.xml" ]; then
-            cd modul-3/user-service
-          fi
-          mvn -B verify -DskipUnitTests
+        run: mvn -B verify -DskipUnitTests
+        working-directory: user-service
         env:
           SPRING_PROFILES_ACTIVE: test
-          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/userdb
+          SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/userdb
           SPRING_DATASOURCE_USERNAME: postgres
           SPRING_DATASOURCE_PASSWORD: password
-          SPRING_REDIS_HOST: localhost
+          SPRING_REDIS_HOST: redis
           SPRING_REDIS_PORT: 6379
-
-      - name: Upload integration test reports
-        uses: actions/upload-artifact@v4
-        with:
-          name: integration-test-reports
-          path: target/failsafe-reports/
-          retention-days: 1
 
   sonar:
     name: SonarQube analysis
@@ -186,9 +163,6 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [ -f "modul-3/user-service/pom.xml" ]; then
-            cd modul-3/user-service
-          fi
           mvn -B sonar:sonar \
             -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }} \
             -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
@@ -197,9 +171,10 @@ jobs:
             -Dsonar.tests=src/test/java \
             -Dsonar.java.binaries=target/classes \
             -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
+        working-directory: user-service
 
   dependency-scan:
-    name: Dependency scan (OWASP)
+    name: Dependency scan
     runs-on: ubuntu-latest
     needs: build
     steps:
@@ -210,7 +185,7 @@ jobs:
         uses: dependency-check/Dependency-Check_Action@main
         with:
           project: 'user-service'
-          path: '.'
+          path: 'user-service'
           format: 'ALL'
           out: 'reports/dependency-check'
           args: >-
@@ -228,10 +203,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build, unit-tests]
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
-    permissions:
-      contents: read
-      packages: write
-      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -248,20 +219,18 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to registry
+        env:
+          REGISTRY: ${{ env.REGISTRY_HOST }}
+          USER: ${{ github.actor }}
+          PASS: ${{ secrets.REGISTRY_PASSWORD || github.token }}
         run: |
-          REGISTRY="${{ env.REGISTRY_HOST }}"
-          USER="${{ github.actor }}"
-          PASS="${{ secrets.REGISTRY_PASSWORD }}"
-          if [ -z "$PASS" ]; then
-            PASS="${{ secrets.GITHUB_TOKEN }}"
-          fi
-          echo "$PASS" | docker login "$REGISTRY" -u "$USER" --password-stdin
+          echo "${PASS}" | docker login "${REGISTRY}" -u "${USER}" --password-stdin
 
       - name: Build and push image
         uses: docker/build-push-action@v6
         with:
-          context: .
-          file: ./Dockerfile
+          context: user-service
+          file: user-service/Dockerfile
           push: true
           tags: |
             ${{ env.REGISTRY_HOST }}/${{ github.repository }}:${{ env.IMAGE_TAG }}
@@ -284,17 +253,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install docker-compose plugin
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y docker-compose-plugin
+      - name: Set up Docker Compose
+        uses: docker/compose-action@v2
 
-      - name: Deploy with docker-compose
+      - name: Deploy with docker compose
         env:
           SPRING_PROFILES_ACTIVE: docker
           SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/userdb
           SPRING_DATASOURCE_USERNAME: postgres
           SPRING_DATASOURCE_PASSWORD: password
           SPRING_REDIS_HOST: redis
+          REGISTRY_HOST: ${{ env.REGISTRY_HOST }}
+          IMAGE_TAG: ${{ env.IMAGE_TAG }}
         run: |
-          docker compose -f docker-compose.yml up -d --build
+          docker compose -f user-service/docker-compose.yml up -d --build
