@@ -1,6 +1,7 @@
 name: CI Pipeline
 
 on:
+  workflow_dispatch:
   push:
     branches: [ main, user-service ]
   pull_request:
@@ -11,6 +12,11 @@ env:
   IMAGE_TAG: ${{ github.sha }}
   SERVICE_PORT: 8080
   REGISTRY_HOST: ghcr.io
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
 
 jobs:
   build-and-test:
@@ -37,29 +43,12 @@ jobs:
 
       - name: Build application
         run: |
-          echo "=== Building with Maven ==="
-          mvn -B clean compile
-          
-          echo "=== Checking compilation results ==="
-          if [ -d "target/classes" ] && [ "$(ls -A target/classes)" ]; then
-            echo "✅ Classes compiled successfully"
-            ls -la target/classes/ | head -10
-          else
-            echo "❌ Compilation failed - no classes found"
-            exit 1
-          fi
-
-          echo "=== Creating JAR file ==="
-          jar cf target/user-service.jar -C target/classes .
-          
-          echo "=== JAR created successfully ==="
-          ls -la target/*.jar
+          mvn -B clean package -DskipTests
+          echo "=== Build completed ==="
+          ls -la target/
 
       - name: Run tests with coverage
-        run: |
-          mkdir -p src/test/resources
-          echo "=== Running tests ==="
-          mvn -B test jacoco:report
+        run: mvn -B test jacoco:report
         env:
           SPRING_PROFILES_ACTIVE: test
 
@@ -75,10 +64,10 @@ jobs:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: password
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U postgres -d userdb"
           --health-interval 10s
           --health-timeout 5s
-          --health-retries 5
+          --health-retries 10
         ports:
           - 5432:5432
       redis:
@@ -87,7 +76,7 @@ jobs:
           --health-cmd "redis-cli ping"
           --health-interval 10s
           --health-timeout 5s
-          --health-retries 5
+          --health-retries 10
         ports:
           - 6379:6379
     steps:
@@ -100,8 +89,18 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Wait for services to be ready
-        run: sleep 15
+      - name: Wait for DB and Redis to be healthy
+        run: |
+          echo "Waiting for postgres..."
+          for i in {1..30}; do
+            docker run --network host --rm postgres:15 pg_isready -h localhost -U postgres -d userdb && break
+            sleep 2
+          done
+          echo "Waiting for redis..."
+          for i in {1..30}; do
+            docker run --network host --rm redis:7-alpine redis-cli -h localhost ping | grep PONG && break
+            sleep 2
+          done
 
       - name: Run integration tests
         run: mvn -B verify -DskipUnitTests
@@ -130,23 +129,16 @@ jobs:
           java-version: '17'
           cache: 'maven'
 
-      - name: Build for Sonar analysis
-        run: mvn -B clean compile test jacoco:report
-
       - name: SonarQube Scan
         env:
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [ -z "$SONAR_TOKEN" ]; then
-            echo "❌ SONAR_TOKEN is not set"
-            exit 1
-          fi
-          
           mvn -B sonar:sonar \
             -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }} \
-            -Dsonar.host.url=https://sonarcloud.io \
-            -Dsonar.login=$SONAR_TOKEN \
+            -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
+            -Dsonar.login=${{ secrets.SONAR_TOKEN }} \
             -Dsonar.sources=src/main/java \
             -Dsonar.tests=src/test/java \
             -Dsonar.java.binaries=target/classes \
@@ -173,9 +165,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build-and-test, integration-tests]
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
-    permissions:
-      contents: read
-      packages: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -187,11 +176,7 @@ jobs:
           java-version: '17'
 
       - name: Build application for Docker
-        run: |
-          mvn -B clean compile
-          jar cf target/user-service.jar -C target/classes .
-          echo "=== JAR for Docker ==="
-          ls -la target/*.jar
+        run: mvn -B clean package -DskipTests
 
       - name: Set lowercase repository name
         run: |
@@ -239,7 +224,9 @@ jobs:
           sudo apt-get install -y docker-compose-plugin
 
       - name: Deploy with docker-compose
-        run: |
-          docker compose -f docker-compose.yml up -d --build
         env:
           SPRING_PROFILES_ACTIVE: docker
+          REGISTRY_HOST: ${{ env.REGISTRY_HOST }}
+          IMAGE_TAG: ${{ env.IMAGE_TAG }}
+        run: |
+          docker compose -f docker-compose.yml up -d --build
