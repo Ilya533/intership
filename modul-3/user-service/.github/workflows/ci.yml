@@ -47,7 +47,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: app-jar
-          path: target/*.jar
+          path: target/user-service*.jar
           retention-days: 1
 
   unit-tests:
@@ -182,7 +182,7 @@ jobs:
           path: '.'
           format: 'ALL'
           out: 'reports/dependency-check'
-          args: '--failOnCVSS 7 --scan **/pom.xml --scan **/target/*.jar'
+          args: '--failOnCVSS 7'
 
       - name: Upload dependency check report
         uses: actions/upload-artifact@v4
@@ -203,23 +203,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Download and verify artifact
-        run: |
-          echo "=== Before download ==="
-          ls -la
-          echo "=== Downloading artifact ==="
       - name: Download jar artifact
         uses: actions/download-artifact@v4
         with:
           name: app-jar
           path: ./
 
-      - name: Verify downloaded artifact
+      - name: Verify and prepare for Docker
         run: |
-          echo "=== After download ==="
+          echo "=== Downloaded files ==="
           ls -la
           echo "=== JAR files ==="
           find . -name "*.jar" -type f
+          # Переименовываем JAR файл для Docker
+          JAR_FILE=$(find . -name "user-service*.jar" -type f | head -1)
+          echo "Using JAR file: $JAR_FILE"
+          cp "$JAR_FILE" app.jar
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
