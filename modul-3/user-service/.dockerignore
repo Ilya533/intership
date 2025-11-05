@@ -1,11 +1,10 @@
-target/
-.idea/
-.vscode/
+# .dockerignore
 .git
-.gitignore
-**/*.log
-Dockerfile*
-docker-compose*.yml
+.github
+.idea
 *.iml
-out/
-*.md
+target
+.mvn
+mvnw
+mvnw.cmd
+README.md
