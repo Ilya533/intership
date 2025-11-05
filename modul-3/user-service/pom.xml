@@ -27,9 +27,21 @@
         <maven-surefire-plugin.version>3.1.2</maven-surefire-plugin.version>
         <jacoco.version>0.8.10</jacoco.version>
 
+        <!-- Sonar Properties -->
         <sonar.host.url>https://sonarcloud.io</sonar.host.url>
         <sonar.organization>ilya533</sonar.organization>
         <sonar.projectKey>ilya533_user-service</sonar.projectKey>
+        <sonar.sourceEncoding>UTF-8</sonar.sourceEncoding>
+        <sonar.java.source>17</sonar.java.source>
+        <sonar.java.target>17</sonar.java.target>
+        <sonar.coverage.jacoco.xmlReportPaths>${project.build.directory}/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
+        <sonar.junit.reportPaths>${project.build.directory}/surefire-reports,${project.build.directory}/failsafe-reports</sonar.junit.reportPaths>
+        <sonar.coverage.exclusions>
+            src/main/java/com/innowise/user_service/entity/**/*,
+            src/main/java/com/innowise/user_service/dto/**/*,
+            src/main/java/com/innowise/user_service/config/**/*,
+            src/main/java/com/innowise/user_service/UserServiceApplication.java
+        </sonar.coverage.exclusions>
     </properties>
 
     <dependencies>
@@ -132,36 +144,6 @@
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-jar-plugin</artifactId>
-                <version>3.3.0</version>
-                <configuration>
-                    <finalName>${project.artifactId}</finalName>
-                </configuration>
-            </plugin>
-
-            <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-                <configuration>
-                    <mainClass>com.innowise.user_service.UserServiceApplication</mainClass>
-                    <excludes>
-                        <exclude>
-                            <groupId>org.projectlombok</groupId>
-                            <artifactId>lombok</artifactId>
-                        </exclude>
-                    </excludes>
-                </configuration>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>repackage</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.11.0</version>
                 <configuration>
@@ -188,6 +170,27 @@
             </plugin>
 
             <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <mainClass>com.innowise.user_service.UserServiceApplication</mainClass>
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>${maven-surefire-plugin.version}</version>
@@ -196,6 +199,7 @@
                         <include>**/*Test.java</include>
                         <include>**/*Tests.java</include>
                     </includes>
+                    <argLine>-XX:MaxPermSize=256m</argLine>
                 </configuration>
             </plugin>
 
@@ -205,6 +209,7 @@
                 <version>${jacoco.version}</version>
                 <executions>
                     <execution>
+                        <id>prepare-agent</id>
                         <goals>
                             <goal>prepare-agent</goal>
                         </goals>
@@ -215,6 +220,9 @@
                         <goals>
                             <goal>report</goal>
                         </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/site/jacoco</outputDirectory>
+                        </configuration>
                     </execution>
                     <execution>
                         <id>check</id>
@@ -263,6 +271,14 @@
             <id>docker</id>
             <properties>
                 <spring.profiles.active>docker</spring.profiles.active>
+            </properties>
+        </profile>
+
+        <profile>
+            <id>sonar</id>
+            <properties>
+                <sonar.coverage.jacoco.xmlReportPaths>${project.build.directory}/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
+                <sonar.junit.reportPaths>${project.build.directory}/surefire-reports,${project.build.directory}/failsafe-reports</sonar.junit.reportPaths>
             </properties>
         </profile>
     </profiles>
