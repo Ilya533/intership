@@ -51,6 +51,9 @@ jobs:
         env:
           SPRING_PROFILES_ACTIVE: test
 
+      - name: Generate JaCoCo XML report
+        run: mvn jacoco:report-aggregate
+
       - name: Upload test results
         uses: actions/upload-artifact@v4
         if: always()
@@ -147,7 +150,10 @@ jobs:
           distribution: temurin
           java-version: '17'
           cache: 'maven'
-
+      - name: Check if reports exist
+        run: |
+          ls -la target/site/jacoco/
+          ls -la target/surefire-reports/
       - name: Cache Maven repository
         uses: actions/cache@v4
         with:
@@ -162,15 +168,11 @@ jobs:
           name: test-results
           path: target/
 
-      - name: Run SonarCloud analysis
-        run: |
-          mvn -B sonar:sonar \
-            -Dsonar.host.url=https://sonarcloud.io \
-            -Dsonar.organization=ilya533 \
-            -Dsonar.projectKey=ilya533_user-service \
-            -Dsonar.login=${{ secrets.SONAR_TOKEN }} \
-            -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml \
-            -Dsonar.junit.reportPaths=target/surefire-reports,target/failsafe-reports
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   dependency-scan:
     name: Dependency Scan
