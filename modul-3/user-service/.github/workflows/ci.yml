@@ -135,13 +135,17 @@ jobs:
 
       - name: Build for Sonar analysis
         run: mvn -B clean compile test jacoco:report
-
+      - name: SonarCloud Scan
+        run: |
+          mvn sonar:sonar \
+            -Dsonar.host.url=https://sonarcloud.io \
+            -Dsonar.login=${{ secrets.SONAR_TOKEN }} \
+            -Dsonar.projectKey=YOUR_PROJECT_KEY
       - name: SonarQube Scan
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Устанавливаем host по умолчанию для SonarCloud
           SONAR_HOST="https://sonarcloud.io"
           
           # Если задан SONAR_HOST_URL, используем его
