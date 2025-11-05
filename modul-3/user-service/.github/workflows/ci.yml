@@ -150,10 +150,7 @@ jobs:
           distribution: temurin
           java-version: '17'
           cache: 'maven'
-      - name: Check if reports exist
-        run: |
-          ls -la target/site/jacoco/
-          ls -la target/surefire-reports/
+
       - name: Cache Maven repository
         uses: actions/cache@v4
         with:
@@ -168,11 +165,19 @@ jobs:
           name: test-results
           path: target/
 
+      - name: Build with coverage for Sonar
+        run: mvn -B compile -DskipTests
+
       - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@v2
+        uses: SonarSource/sonarcloud-github-action@v2.1.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
+            -Dsonar.junit.reportPaths=target/surefire-reports,target/failsafe-reports
+            -Dsonar.coverage.exclusions=**/entity/**,**/dto/**,**/config/**,**/UserServiceApplication.java
 
   dependency-scan:
     name: Dependency Scan
@@ -262,6 +267,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y docker-compose-plugin
 
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY_HOST }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Deploy with docker-compose
         env:
           SPRING_PROFILES_ACTIVE: docker
@@ -270,4 +282,5 @@ jobs:
           REPO_LOWER: ${{ env.REPO_LOWER }}
           IMAGE_NAME: ${{ env.IMAGE_NAME }}
         run: |
-          docker compose -f docker-compose.yml up -d --build
+          docker compose -f docker-compose.yml pull
+          docker compose -f docker-compose.yml up -d
