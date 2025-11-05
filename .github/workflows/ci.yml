@@ -43,7 +43,7 @@ jobs:
 
       - name: Build jar (skip tests)
         run: mvn -B -DskipTests clean package
-        working-directory: user-service
+    
 
       - name: Upload jar artifact
         uses: actions/upload-artifact@v4
@@ -72,7 +72,7 @@ jobs:
 
       - name: Run unit tests
         run: mvn -B test jacoco:report
-        working-directory: user-service
+
         env:
           SPRING_PROFILES_ACTIVE: test
 
@@ -131,7 +131,6 @@ jobs:
 
       - name: Run integration tests
         run: mvn -B verify -DskipUnitTests
-        working-directory: user-service
         env:
           SPRING_PROFILES_ACTIVE: test
           SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/userdb
@@ -171,7 +170,6 @@ jobs:
             -Dsonar.tests=src/test/java \
             -Dsonar.java.binaries=target/classes \
             -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
-        working-directory: user-service
 
   dependency-scan:
     name: Dependency scan
