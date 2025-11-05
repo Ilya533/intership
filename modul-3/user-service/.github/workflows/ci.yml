@@ -38,9 +38,6 @@ jobs:
       - name: Build jar (skip tests)
         run: mvn -B -DskipTests clean package -Dspring-boot.repackage.skip=true
 
-      - name: Verify JAR was created
-        run: ls -la target/ || echo "No target directory"
-
       - name: Upload jar artifact
         uses: actions/upload-artifact@v4
         with:
@@ -125,6 +122,13 @@ jobs:
           SPRING_REDIS_HOST: localhost
           SPRING_REDIS_PORT: 6379
 
+      - name: Upload integration test reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-reports
+          path: target/failsafe-reports/
+          retention-days: 1
+
   sonar:
     name: SonarQube analysis
     runs-on: ubuntu-latest
@@ -172,9 +176,7 @@ jobs:
           path: '.'
           format: 'ALL'
           out: 'reports/dependency-check'
-          args: >-
-            --failOnCVSS 7
-            --skipTestCompile
+          args: '--failOnCVSS 7 --scan **/pom.xml --scan **/target/*.jar'
 
       - name: Upload dependency check report
         uses: actions/upload-artifact@v4
