@@ -26,15 +26,9 @@
         <sonar-maven-plugin.version>3.10.0.2594</sonar-maven-plugin.version>
         <maven-surefire-plugin.version>3.1.2</maven-surefire-plugin.version>
         <jacoco.version>0.8.10</jacoco.version>
-
-        <sonar.host.url>https://sonarcloud.io</sonar.host.url>
+        <sonar.host.url>http://localhost:9000</sonar.host.url>
         <sonar.organization>ilya533</sonar.organization>
-        <sonar.projectKey>intership</sonar.projectKey>
-        <sonar.projectName>
-            intership
-
-        </sonar.projectName>
-
+        <sonar.projectKey>ilya533_user-service</sonar.projectKey>
         <sonar.sourceEncoding>UTF-8</sonar.sourceEncoding>
         <sonar.java.source>17</sonar.java.source>
         <sonar.java.target>17</sonar.java.target>
@@ -172,40 +166,7 @@
                     </annotationProcessorPaths>
                 </configuration>
             </plugin>
-            <plugin>
-                <groupId>org.jacoco</groupId>
-                <artifactId>jacoco-maven-plugin</artifactId>
-                <version>${jacoco.version}</version>
-                <executions>
-                    <execution>
-                        <id>prepare-agent</id>
-                        <goals>
-                            <goal>prepare-agent</goal>
-                        </goals>
-                    </execution>
-                    <execution>
-                        <id>report</id>
-                        <phase>prepare-package</phase>
-                        <goals>
-                            <goal>report</goal>
-                        </goals>
-                        <configuration>
-                            <outputDirectory>${project.build.directory}/site/jacoco</outputDirectory>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>jacoco-site</id>
-                        <phase>verify</phase>
-                        <goals>
-                            <goal>report</goal>
-                        </goals>
-                        <configuration>
-                            <outputDirectory>${project.build.directory}/site/jacoco</outputDirectory>
-                            <formats>XML,HTML</formats>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
+
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
@@ -259,6 +220,7 @@
                         </goals>
                         <configuration>
                             <outputDirectory>${project.build.directory}/site/jacoco</outputDirectory>
+                            <formats>XML,HTML</formats>
                         </configuration>
                     </execution>
                     <execution>
