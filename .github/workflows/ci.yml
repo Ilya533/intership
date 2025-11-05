@@ -1,0 +1,264 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main, user-service ]
+  pull_request:
+    branches: [ main, user-service ]
+
+env:
+  IMAGE_NAME: user-service
+  IMAGE_TAG: ${{ github.sha }}
+  SERVICE_PORT: 8080
+  REGISTRY_HOST: ghcr.io
+
+jobs:
+  build:
+    name: Build package
+    runs-on: ubuntu-latest
+    outputs:
+      jar-path: ${{ steps.upload-art.outputs.artifact-path }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'maven'
+
+      - name: Set JAVA_HOME explicitly
+        run: |
+          echo "JAVA_HOME=$JAVA_HOME" >> $GITHUB_ENV
+          echo "JAVA_HOME set to: $JAVA_HOME"
+
+      - name: Cache Maven repository
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Build jar (skip tests)
+        run: mvn -B -DskipTests clean package
+
+      - name: Upload jar artifact
+        id: upload-art
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-jar
+          path: target/*.jar
+
+  unit-tests:
+    name: Unit tests and coverage
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Download jar artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: app-jar
+
+      - name: Run unit tests
+        run: mvn -B test
+        env:
+          SPRING_PROFILES_ACTIVE: test
+
+      - name: Generate JaCoCo report
+        run: mvn -B jacoco:report
+
+      - name: Upload unit test reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-reports
+          path: |
+            target/surefire-reports/
+            target/site/jacoco/
+
+  integration-tests:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: userdb
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+        options: >-
+          --health-cmd pg_isready -U postgres
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Run integration tests (failsafe)
+        run: mvn -B verify -DskipUnitTests
+        env:
+          SPRING_PROFILES_ACTIVE: test
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/userdb
+          SPRING_DATASOURCE_USERNAME: postgres
+          SPRING_DATASOURCE_PASSWORD: password
+          SPRING_REDIS_HOST: localhost
+
+      - name: Upload integration test reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-reports
+          path: target/failsafe-reports/
+
+  sonar:
+    name: SonarQube analysis
+    runs-on: ubuntu-latest
+    needs: [unit-tests, integration-tests]
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: SonarQube Scan
+        env:
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          mvn -B sonar:sonar \
+            -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }} \
+            -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
+            -Dsonar.login=${{ secrets.SONAR_TOKEN }}
+
+  dependency-scan:
+    name: Dependency scan (OWASP)
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run OWASP Dependency-Check
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          project: 'user-service'
+          path: '.'
+          format: 'ALL'
+          out: 'reports/dependency-check'
+          args: >-
+            --failOnCVSS 7
+            --skipTestCompile
+
+      - name: Upload dependency check report
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-check-report
+          path: reports/dependency-check/
+
+  docker-build:
+    name: Build and push Docker image
+    runs-on: ubuntu-latest
+    needs: [build, unit-tests]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download jar artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: app-jar
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to registry (GHCR or other)
+        run: |
+          REGISTRY="${{ env.REGISTRY_HOST }}"
+          USER="${{ github.actor }}"
+          PASS="${{ secrets.REGISTRY_PASSWORD }}"
+          # if REGISTRY_PASSWORD not provided, fall back to GITHUB_TOKEN
+          if [ -z "$PASS" ]; then
+            PASS="${{ secrets.GITHUB_TOKEN }}"
+          fi
+          echo "$PASS" | docker login "$REGISTRY" -u "$USER" --password-stdin
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY_HOST }}/${{ github.repository }}:${{ env.IMAGE_TAG }}
+            ${{ env.REGISTRY_HOST }}/${{ github.repository }}:latest
+
+      - name: Output image name
+        run: |
+          echo "Image pushed: ${REGISTRY_HOST}/${GITHUB_REPOSITORY}:${IMAGE_TAG}"
+        env:
+          REGISTRY_HOST: ${{ env.REGISTRY_HOST }}
+          IMAGE_TAG: ${{ env.IMAGE_TAG }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+
+  deploy:
+    name: Deploy (docker-compose)
+    runs-on: ubuntu-latest
+    needs: [docker-build, dependency-scan]
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install docker-compose plugin
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y docker-compose-plugin
+
+      - name: Deploy with docker-compose
+        env:
+          SPRING_PROFILES_ACTIVE: docker
+          SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/userdb
+          SPRING_DATASOURCE_USERNAME: postgres
+          SPRING_DATASOURCE_PASSWORD: password
+          SPRING_REDIS_HOST: redis
+        run: |
+          docker compose -f docker-compose.yml up -d --build
