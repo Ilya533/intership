@@ -1,0 +1,303 @@
+name: CI Pipeline
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, user-service ]
+  pull_request:
+    branches: [ main, user-service ]
+
+env:
+  IMAGE_NAME: user-service
+  IMAGE_TAG: ${{ github.sha }}
+  SERVICE_PORT: 8080
+  REGISTRY_HOST: ghcr.io
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'maven'
+
+      - name: Cache Maven repository
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Build application
+        run: mvn -B clean compile
+
+      - name: Run unit tests with coverage
+        run: mvn -B test jacoco:report
+        env:
+          SPRING_PROFILES_ACTIVE: test
+
+      - name: Generate JaCoCo XML report
+        run: mvn jacoco:report-aggregate
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: |
+            target/surefire-reports/
+            target/failsafe-reports/
+            target/site/jacoco/
+          retention-days: 7
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: userdb
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+        options: >-
+          --health-cmd "pg_isready -U postgres -d userdb"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 6379:6379
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Cache Maven repository
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Wait for DB and Redis to be healthy
+        run: |
+          echo "Waiting for postgres..."
+          for i in {1..30}; do
+            docker run --network host --rm postgres:15 pg_isready -h localhost -U postgres -d userdb && break
+            sleep 2
+          done
+          echo "Waiting for redis..."
+          for i in {1..30}; do
+            docker run --network host --rm redis:7-alpine redis-cli -h localhost ping | grep PONG && break
+            sleep 2
+          done
+
+      - name: Run integration tests
+        run: mvn -B verify -DskipUnitTests=true
+        env:
+          SPRING_PROFILES_ACTIVE: test
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/userdb
+          SPRING_DATASOURCE_USERNAME: postgres
+          SPRING_DATASOURCE_PASSWORD: password
+          SPRING_REDIS_HOST: localhost
+          SPRING_REDIS_PORT: 6379
+
+  sonar:
+    name: SonarQube Analysis
+    runs-on: ubuntu-latest
+    needs: [build-and-test, integration-tests]
+    services:
+      sonarqube:
+        image: sonarqube:community
+        ports:
+          - 9000:9000
+        environment:
+          SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: true
+        options: >-
+          --health-cmd "curl -f http://localhost:9000/api/system/status || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: 'maven'
+
+      - name: Cache Maven repository
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Download test results
+        uses: actions/download-artifact@v4
+        with:
+          name: test-results
+          path: target/
+
+      - name: Wait for SonarQube to start
+        run: |
+          for i in {1..30}; do
+            if curl -s http://localhost:9000/api/system/status | grep -q "UP"; then
+              echo "SonarQube is ready!"
+              break
+            fi
+            echo "Waiting for SonarQube to start..."
+            sleep 10
+          done
+
+      - name: Run SonarQube analysis
+        run: |
+          mvn -B sonar:sonar \
+            -Dsonar.host.url=http://localhost:9000 \
+            -Dsonar.login=admin \
+            -Dsonar.password=admin \
+            -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml \
+            -Dsonar.junit.reportPaths=target/surefire-reports,target/failsafe-reports
+
+  dependency-scan:
+    name: Dependency Scan
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run OWASP Dependency-Check
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          project: 'user-service'
+          path: '.'
+          format: 'HTML'
+          out: 'reports'
+
+      - name: Upload dependency scan report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dependency-scan-report
+          path: reports/
+          retention-days: 7
+
+  docker-build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: [build-and-test, integration-tests, dependency-scan]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/user-service'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Build application JAR
+        run: mvn -B clean package -DskipTests
+
+      - name: Set lowercase repository name
+        run: |
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          echo "REPO_LOWER=$REPO_LOWER" >> $GITHUB_ENV
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY_HOST }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY_HOST }}/${{ env.REPO_LOWER }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+            ${{ env.REGISTRY_HOST }}/${{ env.REPO_LOWER }}/${{ env.IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Output image info
+        run: |
+          echo "✅ Docker image pushed successfully"
+          echo "Image: ${{ env.REGISTRY_HOST }}/${{ env.REPO_LOWER }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}"
+
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    needs: [docker-build, sonar]
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install docker-compose
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y docker-compose-plugin
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY_HOST }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Deploy with docker-compose
+        env:
+          SPRING_PROFILES_ACTIVE: docker
+          REGISTRY_HOST: ${{ env.REGISTRY_HOST }}
+          IMAGE_TAG: ${{ env.IMAGE_TAG }}
+          REPO_LOWER: ${{ env.REPO_LOWER }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+        run: |
+          docker compose -f docker-compose.yml pull
+          docker compose -f docker-compose.yml up -d
