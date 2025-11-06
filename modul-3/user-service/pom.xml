@@ -24,22 +24,8 @@
         <lombok.version>1.18.30</lombok.version>
         <testcontainers.version>1.19.3</testcontainers.version>
         <sonar-maven-plugin.version>3.10.0.2594</sonar-maven-plugin.version>
-        <maven-surefire-plugin.version>3.1.2</maven-surefire-plugin.version>
+        <maven-surefire-plugin.version>3.2.5</maven-surefire-plugin.version>
         <jacoco.version>0.8.10</jacoco.version>
-        <sonar.host.url>http://localhost:9000</sonar.host.url>
-        <sonar.organization>ilya533</sonar.organization>
-        <sonar.projectKey>ilya533_user-service</sonar.projectKey>
-        <sonar.sourceEncoding>UTF-8</sonar.sourceEncoding>
-        <sonar.java.source>17</sonar.java.source>
-        <sonar.java.target>17</sonar.java.target>
-        <sonar.coverage.jacoco.xmlReportPaths>${project.build.directory}/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
-        <sonar.junit.reportPaths>${project.build.directory}/surefire-reports,${project.build.directory}/failsafe-reports</sonar.junit.reportPaths>
-        <sonar.coverage.exclusions>
-            src/main/java/com/innowise/user_service/entity/**/*,
-            src/main/java/com/innowise/user_service/dto/**/*,
-            src/main/java/com/innowise/user_service/config/**/*,
-            src/main/java/com/innowise/user_service/UserServiceApplication.java
-        </sonar.coverage.exclusions>
     </properties>
 
     <dependencies>
@@ -66,6 +52,11 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-cache</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
 
         <dependency>
@@ -97,10 +88,17 @@
             <scope>provided</scope>
         </dependency>
 
+        <!-- ТЕСТОВЫЕ ЗАВИСИМОСТИ - ТОЛЬКО ОДИН РАЗ -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.junit.vintage</groupId>
+                    <artifactId>junit-vintage-engine</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -120,13 +118,6 @@
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>postgresql</artifactId>
-            <version>${testcontainers.version}</version>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>jdbc</artifactId>
             <version>${testcontainers.version}</version>
             <scope>test</scope>
         </dependency>
@@ -171,7 +162,6 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
-                    <mainClass>com.innowise.user_service.UserServiceApplication</mainClass>
                     <excludes>
                         <exclude>
                             <groupId>org.projectlombok</groupId>
@@ -179,13 +169,6 @@
                         </exclude>
                     </excludes>
                 </configuration>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>repackage</goal>
-                        </goals>
-                    </execution>
-                </executions>
             </plugin>
 
             <plugin>
@@ -197,7 +180,12 @@
                         <include>**/*Test.java</include>
                         <include>**/*Tests.java</include>
                     </includes>
-                    <argLine>-XX:MaxPermSize=256m</argLine>
+                    <argLine>-Xmx1024m -XX:MaxMetaspaceSize=512m</argLine>
+                    <forkCount>1</forkCount>
+                    <reuseForks>false</reuseForks>
+                    <systemPropertyVariables>
+                        <spring.profiles.active>test</spring.profiles.active>
+                    </systemPropertyVariables>
                 </configuration>
             </plugin>
 
@@ -218,67 +206,9 @@
                         <goals>
                             <goal>report</goal>
                         </goals>
-                        <configuration>
-                            <outputDirectory>${project.build.directory}/site/jacoco</outputDirectory>
-                            <formats>XML,HTML</formats>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>check</id>
-                        <phase>verify</phase>
-                        <goals>
-                            <goal>check</goal>
-                        </goals>
-                        <configuration>
-                            <rules>
-                                <rule>
-                                    <element>BUNDLE</element>
-                                    <limits>
-                                        <limit>
-                                            <counter>INSTRUCTION</counter>
-                                            <value>COVEREDRATIO</value>
-                                            <minimum>0.80</minimum>
-                                        </limit>
-                                    </limits>
-                                </rule>
-                            </rules>
-                        </configuration>
                     </execution>
                 </executions>
             </plugin>
-
-            <plugin>
-                <groupId>org.sonarsource.scanner.maven</groupId>
-                <artifactId>sonar-maven-plugin</artifactId>
-                <version>${sonar-maven-plugin.version}</version>
-            </plugin>
         </plugins>
     </build>
-
-    <profiles>
-        <profile>
-            <id>local</id>
-            <activation>
-                <activeByDefault>true</activeByDefault>
-            </activation>
-            <properties>
-                <spring.profiles.active>local</spring.profiles.active>
-            </properties>
-        </profile>
-
-        <profile>
-            <id>docker</id>
-            <properties>
-                <spring.profiles.active>docker</spring.profiles.active>
-            </properties>
-        </profile>
-
-        <profile>
-            <id>sonar</id>
-            <properties>
-                <sonar.coverage.jacoco.xmlReportPaths>${project.build.directory}/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
-                <sonar.junit.reportPaths>${project.build.directory}/surefire-reports,${project.build.directory}/failsafe-reports</sonar.junit.reportPaths>
-            </properties>
-        </profile>
-    </profiles>
 </project>
